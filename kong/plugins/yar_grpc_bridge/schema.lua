@@ -63,7 +63,10 @@ return {
                     {
                         grpc_backend_url = {
                             type = "string",
-                            description = "HTTP bridge URL of the gRPC backend (yar2grpc direction only)",
+                            required = function(config)
+                                return config.direction == "yar2grpc"
+                            end,
+                            description = "HTTP bridge URL of the gRPC backend (required for yar2grpc direction)",
                         },
                     },
                     {

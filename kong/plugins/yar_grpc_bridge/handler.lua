@@ -27,6 +27,11 @@ local table_sort = table.sort
 local table_concat = table.concat
 local math_huge = math.huge
 
+-- Max recursion depth for config serialization / value coercion (prevents stack overflow)
+local MAX_RECURSION_DEPTH = 20
+-- Default timeout (ms) for gRPC backend HTTP requests via lua-resty-http
+local GRPC_BACKEND_TIMEOUT = 5000
+
 local Plugin = {
     PRIORITY = 750,
     VERSION = "0.1.0",
@@ -42,7 +47,7 @@ local _setup_error = nil
 -- triggers re-setup, not just adding/removing service names (CR C1/W1 fix).
 local function serialize_table(tbl, depth)
     depth = depth or 0
-    if depth > 20 or type(tbl) ~= "table" then
+    if depth > MAX_RECURSION_DEPTH or type(tbl) ~= "table" then
         return tostring(tbl)
     end
     local parts = {}
@@ -84,13 +89,16 @@ end
 -- Kong declarative config (YAML) may deliver numbers as strings depending on schema.
 local function coerce_values(tbl, depth)
     depth = depth or 0
-    if depth > 20 or type(tbl) ~= "table" then
+    if depth > MAX_RECURSION_DEPTH or type(tbl) ~= "table" then
         return tbl
     end
     local result = {}
     for k, v in pairs(tbl) do
         if type(v) == "string" then
             local num = tonumber(v)
+            -- tostring(num) == v ensures a "clean" numeric conversion (e.g. "42"→42).
+            -- Caveat: "42.0" won't match since LuaJIT tostring(42.0) == "42"; acceptable
+            -- because schema defines options values as string and YAML uses integer literals.
             -- Exclude inf/nan (tonumber("inf") returns inf) — CR I1 fix
             if
                 num
@@ -188,13 +196,15 @@ local function ensure_setup(conf)
                 local http_new = require("resty.http").new
                 transport = function(service, method, frame)
                     local httpc = http_new()
-                    local res, req_err = httpc:request_uri(backend_url .. "/" .. service .. "/" .. method, {
+                    local url = backend_url .. "/" .. ngx.escape_uri(service) .. "/" .. ngx.escape_uri(method)
+                    local res, req_err = httpc:request_uri(url, {
                         method = "POST",
                         body = frame,
                         headers = {
                             ["Content-Type"] = "application/grpc",
                             ["TE"] = "trailers",
                         },
+                        timeout = GRPC_BACKEND_TIMEOUT,
                     })
                     if not res then
                         return nil, errors.UNAVAILABLE, "gRPC backend error: " .. tostring(req_err)
@@ -202,8 +212,8 @@ local function ensure_setup(conf)
                     if res.status ~= 200 then
                         return nil, errors.UNAVAILABLE, "gRPC backend HTTP error: " .. tostring(res.status)
                     end
-                    local grpc_status = tonumber(res.headers["grpc-status"]) or 0
-                    if grpc_status ~= 0 then
+                    local grpc_status = tonumber(res.headers["grpc-status"]) or errors.OK
+                    if grpc_status ~= errors.OK then
                         return nil, grpc_status, res.headers["grpc-message"] or "gRPC error"
                     end
                     return res.body
@@ -237,7 +247,7 @@ function Plugin:access(conf)
         ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
         ngx.header["Content-Type"] = "text/plain"
         ngx.say("yar_grpc_bridge plugin setup failed: " .. tostring(err))
-        return
+        return ngx.exit(ngx.HTTP_INTERNAL_SERVER_ERROR)
     end
 
     if conf.direction == "grpc2yar" then

@@ -30,6 +30,10 @@ import (
 	calcpb "calc/proto"
 )
 
+// grpcFrameHeaderSize is the size of a gRPC frame prefix:
+// 1 byte compression flag + 4 bytes big-endian message length.
+const grpcFrameHeaderSize = 5
+
 // methodHandler decodes a protobuf payload, calls the gRPC method, and returns
 // the encoded response payload.
 type methodHandler func(ctx context.Context, payload []byte) ([]byte, error)
@@ -89,21 +93,21 @@ func startHTTPBridge(addr string, srv *calculatorServer) {
 			return
 		}
 
-		// Decode gRPC frame
-		if len(body) < 5 {
-			writeGRPCError(w, codes.InvalidArgument, "short frame: len < 5")
+		// Decode gRPC frame (1-byte flag + 4-byte length + payload)
+		if len(body) < grpcFrameHeaderSize {
+			writeGRPCError(w, codes.InvalidArgument, "short frame: length < header size")
 			return
 		}
 		if body[0] != 0 {
 			writeGRPCError(w, codes.Unimplemented, "compression not supported")
 			return
 		}
-		msgLen := binary.BigEndian.Uint32(body[1:5])
-		if uint32(len(body)-5) < msgLen {
+		msgLen := binary.BigEndian.Uint32(body[1:grpcFrameHeaderSize])
+		if uint32(len(body)-grpcFrameHeaderSize) < msgLen {
 			writeGRPCError(w, codes.InvalidArgument, "truncated frame")
 			return
 		}
-		payload := body[5 : 5+msgLen]
+		payload := body[grpcFrameHeaderSize : grpcFrameHeaderSize+msgLen]
 
 		// Dispatch to handler
 		handler, ok := handlers[serviceMethod]
@@ -120,10 +124,10 @@ func startHTTPBridge(addr string, srv *calculatorServer) {
 		}
 
 		// Encode gRPC frame
-		frame := make([]byte, 5+len(respPayload))
+		frame := make([]byte, grpcFrameHeaderSize+len(respPayload))
 		frame[0] = 0 // no compression
-		binary.BigEndian.PutUint32(frame[1:5], uint32(len(respPayload)))
-		copy(frame[5:], respPayload)
+		binary.BigEndian.PutUint32(frame[1:grpcFrameHeaderSize], uint32(len(respPayload)))
+		copy(frame[grpcFrameHeaderSize:], respPayload)
 
 		w.Header().Set("Content-Type", "application/grpc")
 		w.Header().Set("grpc-status", "0")

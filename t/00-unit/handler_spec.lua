@@ -14,7 +14,9 @@ local say = require("say")
 -- in isolation. The handler's core logic (setup, routing, URI parsing)
 -- is testable without OpenResty.
 
-local mock_ngx = {
+-- Declare first so say/exit closures capture the local upvalue (not a global)
+local mock_ngx
+mock_ngx = {
     var = {},
     req = {},
     header = {},
@@ -26,6 +28,9 @@ local mock_ngx = {
     INFO = 5,
     WARN = 6,
     ERR = 8,
+    escape_uri = function(s) return s end,
+    say = function(msg) mock_ngx._said = msg end,
+    exit = function(code) mock_ngx._exited = code; return true end,
 }
 
 -- Save original ngx if present
@@ -55,6 +60,7 @@ local yar2grpc_setup_called = false
 local yar2grpc_setup_args = nil
 local grpc2yar_serve_called = false
 local yar2grpc_handle_called = false
+local proto_open_fail = false
 
 package.loaded["resty.yar_grpc_bridge"] = {
     setup = function(opts)
@@ -86,12 +92,17 @@ package.loaded["resty.yar_grpc_bridge.yar2grpc_endpoint"] = {
     end,
 }
 
--- Mock lua-resty-http
+-- Mock lua-resty-http (response configurable per-test via http_response / http_request_error)
+local http_response = { status = 200, body = "mock-frame", headers = { ["grpc-status"] = "0" } }
+local http_request_error = false -- when true, request_uri returns nil (connection failure)
 package.loaded["resty.http"] = {
     new = function()
         return {
             request_uri = function(self, url, opts)
-                return { status = 200, body = "mock-frame", headers = { ["grpc-status"] = "0" } }
+                if http_request_error then
+                    return nil, "connection refused"
+                end
+                return http_response
             end,
         }
     end,
@@ -105,10 +116,17 @@ local function reset()
     yar2grpc_setup_args = nil
     grpc2yar_serve_called = false
     yar2grpc_handle_called = false
+    proto_open_fail = false
     mock_ngx.var = {}
     mock_ngx.req = {}
     mock_ngx.header = {}
     mock_ngx.ctx = {}
+    mock_ngx._said = nil
+    mock_ngx._exited = nil
+    http_response.status = 200
+    http_response.body = "mock-frame"
+    http_response.headers = { ["grpc-status"] = "0" }
+    http_request_error = false
 end
 
 describe("yar_grpc_bridge plugin handler", function()
@@ -121,9 +139,12 @@ describe("yar_grpc_bridge plugin handler", function()
         reset()
         _G.ngx = mock_ngx
         -- Mock io.open for .pb files (proto loading in ensure_setup)
-        local real_io_open = io.open
+        -- proto_open_fail: when true, .pb open fails (used by error-path tests)
         io.open = function(path, mode)
             if path and path:match("%.pb$") then
+                if proto_open_fail then
+                    return nil, "mock: proto open failed"
+                end
                 return { read = function() return "mock-pb-data" end, close = function() end }
             end
             return real_io_open(path, mode)
@@ -302,6 +323,86 @@ describe("yar_grpc_bridge plugin handler", function()
             assert.are.equal("mock-frame", payload)
             assert.is_nil(status)
             assert.is_nil(err)
+        end)
+    end)
+
+    describe("error paths", function()
+        it("returns HTTP 500 + ngx.exit on setup failure (proto open error)", function()
+            proto_open_fail = true
+            local conf = {
+                direction = "yar2grpc",
+                services = { ["svc.A"] = { proto = "/bad.pb", methods = { "M" } } },
+                grpc_backend_url = "http://go:50052",
+            }
+            handler:access(conf)
+            assert.are.equal(mock_ngx.HTTP_INTERNAL_SERVER_ERROR, mock_ngx.status)
+            assert.truthy(mock_ngx._said)
+            assert.are.equal(mock_ngx.HTTP_INTERNAL_SERVER_ERROR, mock_ngx._exited)
+            assert.is_false(yar2grpc_setup_called)
+        end)
+
+        it("transport returns UNAVAILABLE on non-200 backend status", function()
+            http_response.status = 502
+            local conf = {
+                direction = "yar2grpc",
+                services = { ["svc.A"] = { proto = "a.pb", methods = { "M" } } },
+                grpc_backend_url = "http://go:50052",
+            }
+            handler:access(conf)
+            local transport = yar2grpc_setup_args.grpc_transport
+            local payload, status, err = transport("svc.A", "M", "frame")
+            assert.is_nil(payload)
+            assert.are.equal(14, status) -- errors.UNAVAILABLE
+            assert.truthy(err)
+        end)
+
+        it("transport returns gRPC status + message on non-zero grpc-status", function()
+            http_response.headers = { ["grpc-status"] = "7", ["grpc-message"] = "boom" }
+            local conf = {
+                direction = "yar2grpc",
+                services = { ["svc.A"] = { proto = "a.pb", methods = { "M" } } },
+                grpc_backend_url = "http://go:50052",
+            }
+            handler:access(conf)
+            local transport = yar2grpc_setup_args.grpc_transport
+            local payload, status, err = transport("svc.A", "M", "frame")
+            assert.is_nil(payload)
+            assert.are.equal(7, status)
+            assert.are.equal("boom", err)
+        end)
+
+        it("transport returns UNAVAILABLE when request_uri fails (connection)", function()
+            http_request_error = true
+            local conf = {
+                direction = "yar2grpc",
+                services = { ["svc.A"] = { proto = "a.pb", methods = { "M" } } },
+                grpc_backend_url = "http://go:50052",
+            }
+            handler:access(conf)
+            local transport = yar2grpc_setup_args.grpc_transport
+            local payload, status, err = transport("svc.A", "M", "frame")
+            assert.is_nil(payload)
+            assert.are.equal(14, status) -- errors.UNAVAILABLE
+            assert.truthy(err)
+        end)
+    end)
+
+    describe("coerce_values edge cases", function()
+        it("coerces 'true'/'false' strings to booleans", function()
+            local conf = {
+                direction = "grpc2yar",
+                services = {
+                    ["svc.A"] = {
+                        proto = "a.pb",
+                        url = "http://a",
+                        options = { flag = "true", disabled = "false" },
+                    },
+                },
+            }
+            handler:access(conf)
+            local _, svc_opts = next(bridge_setup_args.services)
+            assert.is_true(svc_opts.options.flag)
+            assert.is_false(svc_opts.options.disabled)
         end)
     end)
 end)

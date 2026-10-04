@@ -23,7 +23,7 @@ services:
         paths: ["/"]
         strip_path: false
         plugins:
-          - name: yar-grpc-bridge
+          - name: yar_grpc_bridge
             config:
               direction: grpc2yar
               services:
@@ -49,7 +49,7 @@ services:
         paths: ["/api"]
         strip_path: false
         plugins:
-          - name: yar-grpc-bridge
+          - name: yar_grpc_bridge
             config:
               direction: yar2grpc
               services:

@@ -12,10 +12,15 @@
 #   make docker-build — build Kong plugin e2e image on top of base
 
 ROOT := $(shell pwd)
-OR ?= /opt/homebrew/opt/openresty
-OPENRESTY_PREFIX ?= $(OR)
-NGINX := $(OR)/nginx/sbin/nginx
-LUAROCKS := $(OR)/luajit/bin/luarocks
+
+# OpenResty install prefix (contains nginx/sbin/nginx, luajit/bin/luarocks).
+# macOS: auto-detected via `brew --prefix openresty` (no hardcoded path —
+#        adapts to Apple Silicon /opt/homebrew and Intel /usr/local).
+# Linux/other: falls back to the standard source-build path.
+# Override: make e2e OPENRESTY_PREFIX=/path/to/openresty
+OPENRESTY_PREFIX ?= $(shell brew --prefix openresty 2>/dev/null || echo /usr/local/openresty)
+NGINX = $(OPENRESTY_PREFIX)/nginx/sbin/nginx
+LUAROCKS = $(OPENRESTY_PREFIX)/luajit/bin/luarocks
 
 # Bridge dependency — installed remotely from GitHub, not local sibling dir
 BRIDGE_REPO ?= https://github.com/fangfengxiang/lua-resty-yar-grpc-bridge.git

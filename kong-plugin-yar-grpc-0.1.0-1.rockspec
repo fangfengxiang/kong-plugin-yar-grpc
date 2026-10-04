@@ -16,7 +16,6 @@ description = {
     ]],
     homepage = "https://github.com/fangfengxiang/kong-plugin-yar-grpc",
     license = "Apache 2.0",
-    maintainer = "yar-group",
 }
 
 dependencies = {
