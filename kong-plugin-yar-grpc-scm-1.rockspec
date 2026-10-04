@@ -1,8 +1,8 @@
 package = "kong-plugin-yar-grpc"
-version = "0.1.0-1"
+version = "scm-1"
 
 source = {
-    url = "https://github.com/fangfengxiang/kong-plugin-yar-grpc.git",
+    url = "git+https://github.com/fangfengxiang/kong-plugin-yar-grpc.git",
     branch = "main",
 }
 
@@ -19,8 +19,8 @@ description = {
 }
 
 dependencies = {
-    "lua-resty-yar-grpc-bridge",
-    "lua-resty-http",
+    "lua-resty-yar-grpc-bridge >= 0.1.2",
+    "lua-resty-http >= 0.17",
 }
 
 build = {
