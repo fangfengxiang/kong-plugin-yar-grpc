@@ -16,9 +16,6 @@ NGINX="$OR/nginx/sbin/nginx"
 RUN="$D/.run"
 LOG="$RUN/logs"
 BIN="$RUN/bin"
-# Bridge source lib path (mounted at /bridge in Docker, or local path otherwise)
-BRIDGE_LIB="${BRIDGE_LIB:-$(cd "$ROOT/../lua-resty-yar-grpc-bridge/lib" 2>/dev/null && pwd || echo "/bridge/lib")}"
-export BRIDGE_LIB
 mkdir -p "$RUN" "$LOG" "$BIN"
 
 # e2e ports (different from bridge e2e to allow parallel runs)

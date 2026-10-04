@@ -36,7 +36,6 @@ C "preparing nginx config (packager=$PACKAGER)..."
 sed -e "s|@RUN@|$RUN|g" -e "s|@PREFIX@|$ROOT|g" -e "s|@PACKAGER@|$PACKAGER|g" \
     -e "s|@PORT_KONG_GRPC2YAR@|$E2E_PORT_KONG_GRPC2YAR|g" \
     -e "s|@PORT_PHP@|$E2E_PORT_PHP|g" \
-    -e "s|@BRIDGE_LIB@|${BRIDGE_LIB:-/bridge/lib}|g" \
     "$D/nginx_grpc2yar.conf" > "$RUN/nginx_grpc2yar_${PACKAGER}.conf"
 
 # ── Start PHP Yar server ──

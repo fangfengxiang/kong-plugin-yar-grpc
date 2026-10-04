@@ -9,8 +9,6 @@
 --   grpc_backend_url  — HTTP bridge URL of gRPC backend (yar2grpc only)
 --   yar_path_prefix   — URI prefix for service extraction (yar2grpc, default /api/)
 
-local typedefs = require("kong.db.schema.typedefs")
-
 return {
     name = "yar_grpc_bridge",
     fields = {

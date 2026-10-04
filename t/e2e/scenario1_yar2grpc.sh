@@ -37,7 +37,6 @@ C "preparing nginx config (packager=$PACKAGER)..."
 sed -e "s|@RUN@|$RUN|g" -e "s|@PREFIX@|$ROOT|g" -e "s|@PACKAGER@|$PACKAGER|g" \
     -e "s|@PORT_KONG_YAR2GRPC@|$E2E_PORT_KONG_YAR2GRPC|g" \
     -e "s|@PORT_GO_HTTP@|$E2E_PORT_GO_HTTP|g" \
-    -e "s|@BRIDGE_LIB@|${BRIDGE_LIB:-/bridge/lib}|g" \
     "$D/nginx_yar2grpc.conf" > "$RUN/nginx_yar2grpc_${PACKAGER}.conf"
 
 # ── Start Go gRPC server (gRPC :50051, HTTP bridge :50052) ──

@@ -2,7 +2,7 @@ package = "kong-plugin-yar-grpc"
 version = "0.1.0-1"
 
 source = {
-    url = "git://github.com/yar-group/kong-plugin-yar-grpc",
+    url = "https://github.com/fangfengxiang/kong-plugin-yar-grpc.git",
     branch = "main",
 }
 
@@ -14,8 +14,8 @@ description = {
         lua-resty-yar-grpc-bridge. Supports both directions:
         grpc2yar (gRPC client → PHP Yar) and yar2grpc (PHP Yar → gRPC).
     ]],
-    homepage = "https://github.com/yar-group/kong-plugin-yar-grpc",
-    license = "MIT",
+    homepage = "https://github.com/fangfengxiang/kong-plugin-yar-grpc",
+    license = "Apache 2.0",
     maintainer = "yar-group",
 }
 
