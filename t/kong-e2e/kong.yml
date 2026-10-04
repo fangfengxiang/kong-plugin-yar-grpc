@@ -1,0 +1,65 @@
+# kong.yml — Kong DB-less declarative config for integration e2e (READ BY KONG)
+#
+# Unlike t/e2e/kong.yml (a reference template never loaded by any script), THIS
+# file is consumed by `kong start` via KONG_DECLARATIVE_CONFIG. Placeholders are
+# replaced via sed in the scenario scripts:
+#   @PACKAGER@      → json | msgpack
+#   @PORT_PHP@      → PHP Yar server port (grpc2yar backend)
+#   @PORT_GO_HTTP@  → Go HTTP bridge port (yar2grpc backend)
+#
+# Two services, two routes — one for each bridge direction:
+#   1. grpc2yar: gRPC client → Kong (HTTP/2 :8000) → PHP Yar server
+#   2. yar2grpc: PHP Yar client → Kong (HTTP/1.1 :8000/api) → Go gRPC server
+#
+# Schema validation happens at declarative load time: if direction/methods/url
+# are malformed, `kong start` (or `kong config parse`) fails with a schema
+# violation error — that is the config-schema-validation test point.
+
+_format_version: "3.0"
+
+services:
+  # ── grpc2yar: Go gRPC → Kong → PHP Yar ──
+  - name: grpc2yar
+    protocol: grpc
+    host: 127.0.0.1
+    port: 8888              # stub — plugin short-circuits in access phase, never proxied
+    routes:
+      - name: grpc-route
+        protocols: ["grpc"]
+        paths: ["/"]
+        strip_path: false
+        plugins:
+          - name: yar_grpc_bridge
+            config:
+              direction: grpc2yar
+              services:
+                calculator.Calculator:
+                  proto: /app/t/e2e/proto/calculator.pb
+                  url: http://127.0.0.1:@PORT_PHP@/api.php
+                  options:
+                    packager: "@PACKAGER@"
+                    timeout: "5000"
+              yar_options:
+                timeout: "3000"
+              max_payload_bytes: 8388608
+
+  # ── yar2grpc: PHP Yar → Kong → Go gRPC ──
+  - name: yar2grpc
+    protocol: http
+    host: 127.0.0.1
+    port: 8080              # stub — plugin short-circuits, never proxied
+    routes:
+      - name: yar-route
+        protocols: ["http"]
+        paths: ["/api"]
+        strip_path: false
+        plugins:
+          - name: yar_grpc_bridge
+            config:
+              direction: yar2grpc
+              services:
+                calculator.Calculator:
+                  proto: /app/t/e2e/proto/calculator.pb
+                  methods: ["Add", "Subtract"]
+              grpc_backend_url: "http://127.0.0.1:@PORT_GO_HTTP@"
+              yar_path_prefix: "/api/"

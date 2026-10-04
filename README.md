@@ -4,6 +4,7 @@
 
 [![CI](https://github.com/fangfengxiang/kong-plugin-yar-grpc/actions/workflows/ci.yml/badge.svg)](https://github.com/fangfengxiang/kong-plugin-yar-grpc/actions/workflows/ci.yml)
 [![Kong](https://img.shields.io/badge/Kong-Gateway-blue.svg)](https://konghq.com/kong-gateway/)
+[![LuaRocks](https://img.shields.io/luarocks/v/fangfengxiang/kong-plugin-yar-grpc)](https://luarocks.org/modules/fangfengxiang/kong-plugin-yar-grpc)
 [![License](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 
 Kong custom plugin: YAR &harr; gRPC protocol bridge for Kong Gateway.
@@ -15,7 +16,7 @@ Reuses the host-agnostic orchestration + OpenResty HTTP entry from
 
 | Package | Version | Required when |
 |---|---|---|
-| `lua-resty-yar-grpc-bridge` | >= 0.1.1 | always |
+| `lua-resty-yar-grpc-bridge` | >= 0.1.2 | always |
 | `lua-resty-http` | >= 0.17 | yar2grpc direction only (gRPC backend HTTP transport) |
 
 ## Quick Start
@@ -129,4 +130,4 @@ make docker-e2e
 
 ## License
 
-Apache-2.0 — see [LICENSE](LICENSE).
+[Apache License 2.0](LICENSE)

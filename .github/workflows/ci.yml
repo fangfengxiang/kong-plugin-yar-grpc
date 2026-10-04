@@ -89,7 +89,11 @@ jobs:
           rm -rf "$tmpdir"
 
       - name: Build Kong plugin e2e image
-        run: docker build -t kong-yar-grpc-plugin-e2e -f t/e2e/Dockerfile t/e2e/
+        # Build context must be repo root (.) because t/e2e/Dockerfile does
+        # `COPY kong/` and `COPY t/` — both live at repo root, not under t/e2e/.
+        # Using t/e2e/ as context (previous bug) makes BuildKit fail with
+        # "/kong": not found, "/t": not found.
+        run: docker build -t kong-yar-grpc-plugin-e2e -f t/e2e/Dockerfile .
 
       - name: Run e2e tests (json + msgpack, scenario 1 + 2)
         run: |
