@@ -4,6 +4,7 @@
 
 [![CI](https://github.com/fangfengxiang/kong-plugin-yar-grpc/actions/workflows/ci.yml/badge.svg)](https://github.com/fangfengxiang/kong-plugin-yar-grpc/actions/workflows/ci.yml)
 [![Kong](https://img.shields.io/badge/Kong-Gateway-blue.svg)](https://konghq.com/kong-gateway/)
+[![LuaRocks](https://img.shields.io/luarocks/v/fangfengxiang/kong-plugin-yar-grpc)](https://luarocks.org/modules/fangfengxiang/kong-plugin-yar-grpc)
 [![License](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 
 Kong 自定义插件：YAR &harr; gRPC 协议桥接，适用于 Kong Gateway。
@@ -16,7 +17,7 @@ Kong 自定义插件：YAR &harr; gRPC 协议桥接，适用于 Kong Gateway。
 
 | 包名 | 版本 | 适用场景 |
 |---|---|---|
-| `lua-resty-yar-grpc-bridge` | >= 0.1.1 | 始终需要 |
+| `lua-resty-yar-grpc-bridge` | >= 0.1.2 | 始终需要 |
 | `lua-resty-http` | >= 0.17 | 仅 yar2grpc 方向（gRPC 后端 HTTP 传输） |
 
 ## 快速开始
@@ -130,4 +131,4 @@ make docker-e2e
 
 ## 许可协议
 
-Apache-2.0 — 详见 [LICENSE](LICENSE)。
+[Apache License 2.0](LICENSE)

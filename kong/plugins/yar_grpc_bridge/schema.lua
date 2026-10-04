@@ -63,16 +63,26 @@ return {
                     {
                         grpc_backend_url = {
                             type = "string",
-                            required = function(config)
-                                return config.direction == "yar2grpc"
-                            end,
-                            description = "HTTP bridge URL of the gRPC backend (required for yar2grpc direction)",
+                            description = "HTTP bridge URL of the gRPC backend (required when direction is yar2grpc; enforced by entity_checks below)",
                         },
                     },
                     {
                         yar_path_prefix = {
                             type = "string",
                             default = "/api/",
+                        },
+                    },
+                },
+                -- grpc_backend_url is conditionally required (direction == "yar2grpc").
+                -- Kong 3.x schema does not support function-valued `required` (it
+                -- rejects with "expected a boolean"); use entity_checks
+                -- conditional_at_least_one_of for cross-field validation instead.
+                entity_checks = {
+                    {
+                        conditional_at_least_one_of = {
+                            if_field = "direction",
+                            if_match = { eq = "yar2grpc" },
+                            then_at_least_one_of = { "grpc_backend_url" },
                         },
                     },
                 },

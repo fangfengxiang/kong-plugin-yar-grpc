@@ -258,7 +258,8 @@ function Plugin:access(conf)
     end
 
     -- yar2grpc: parse service name from URI and set ngx.var.service_name
-    -- (variable declared via Kong nginx custom directive: set $service_name "";)
+    -- (yar2grpc_endpoint reads ngx.var.service_name; the variable is declared
+    -- via `set $service_name ""` injected into Kong's nginx template at build time)
     local uri = ngx.var.uri or ""
     local prefix = conf.yar_path_prefix or "/api/"
     local service_name
