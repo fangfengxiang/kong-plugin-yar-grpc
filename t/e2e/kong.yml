@@ -1,0 +1,60 @@
+# kong.yml — Kong DB-less declarative config for e2e tests (reference template)
+#
+# NOTE: This file is a reference template. The @PACKAGER@ placeholder is replaced
+# via sed in the e2e scenario scripts. For actual Kong deployment, replace with
+# "json" or "msgpack" directly.
+#
+# Two services, two routes — one for each bridge direction:
+#   1. grpc2yar: gRPC client → Kong (HTTP/2) → PHP Yar server
+#   2. yar2grpc: PHP Yar client → Kong (HTTP/1.1) → Go gRPC server
+
+_format_version: "3.0"
+
+services:
+  # ── Scenario 2: Go gRPC → Kong → PHP Yar (grpc2yar direction) ──
+  - name: grpc2yar
+    protocol: grpc
+    host: 127.0.0.1
+    port: 8888              # PHP Yar server (stub — plugin short-circuits, never proxied)
+    path: /
+    routes:
+      - name: grpc-route
+        protocols: ["grpc"]
+        paths: ["/"]
+        strip_path: false
+        plugins:
+          - name: yar-grpc-bridge
+            config:
+              direction: grpc2yar
+              services:
+                calculator.Calculator:
+                  proto: /app/t/e2e/proto/calculator.pb
+                  url: http://127.0.0.1:8888/api.php
+                  options:
+                    packager: "@PACKAGER@"
+                    timeout: "5000"
+              yar_options:
+                timeout: "3000"
+              max_payload_bytes: 8388608
+
+  # ── Scenario 1: PHP Yar → Kong → Go gRPC (yar2grpc direction) ──
+  - name: yar2grpc
+    protocol: http
+    host: 127.0.0.1
+    port: 8080              # stub — plugin short-circuits, never proxied
+    path: /
+    routes:
+      - name: yar-route
+        protocols: ["http"]
+        paths: ["/api"]
+        strip_path: false
+        plugins:
+          - name: yar-grpc-bridge
+            config:
+              direction: yar2grpc
+              services:
+                calculator.Calculator:
+                  proto: /app/t/e2e/proto/calculator.pb
+                  methods: ["Add", "Subtract"]
+              grpc_backend_url: "http://127.0.0.1:50052"
+              yar_path_prefix: "/api/"
